@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { ArchiveX, Command, File, Inbox, Send, Trash2 } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { NavUser } from "@/components/nav-user"
@@ -148,11 +148,15 @@ const data = {
 // FileItem组件用于处理文件点击导航
 function FileItem({ fileName, dirname }: { fileName: string; dirname: string }) {
   const router = useRouter()
+  const pathname = usePathname()
   
   const handleClick = () => {
     // 导航到古文页面，使用dirname作为第一个参数，fileName作为第二个参数
     router.push(`/prose/${encodeURIComponent(dirname)}/${encodeURIComponent(fileName)}`)
   }
+  
+  // 检查当前路径是否匹配此文件项
+  const isActive = pathname === `/prose/${encodeURIComponent(dirname)}/${encodeURIComponent(fileName)}`
   
   return (
     <a
@@ -161,37 +165,79 @@ function FileItem({ fileName, dirname }: { fileName: string; dirname: string }) 
         e.preventDefault()
         handleClick()
       }}
-      className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex flex-col items-start gap-2 border-b p-4 text-sm leading-tight whitespace-nowrap last:border-b-0 cursor-pointer"
+      className={`hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex flex-col items-start gap-2 border-b p-4 text-sm leading-tight whitespace-nowrap last:border-b-0 cursor-pointer transition-colors ${
+        isActive 
+          ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' 
+          : ''
+      }`}
     >
       <div className="flex w-full items-center gap-2">
-        <span>{fileName}</span>
+        <span className={isActive ? 'font-medium' : ''}>{fileName}</span>
       </div>
     </a>
   )
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  // Note: I'm using state to show active item.
-  // IRL you should use the url/router.
+  const pathname = usePathname()
   const [activeItem, setActiveItem] = React.useState<any>({})
   const [mails, setMails] = React.useState(data.mails)
   const { setOpen } = useSidebar()
   const [resources, setResources] = React.useState<string[]>([])
   const [files, setFiles] = React.useState<string[]>([])
+  
+  // 从URL中提取dirname和subdirname
+  const getActiveResourceFromUrl = React.useCallback(() => {
+    const match = pathname.match(/^\/prose\/([^/]+)\/([^/]+)$/)
+    if (match) {
+      const dirname = decodeURIComponent(match[1])
+      const subdirname = decodeURIComponent(match[2])
+      return { dirname, subdirname }
+    }
+    return null
+  }, [pathname])
+  
+  // 设置活动项并加载文件列表
+  const setActiveResource = React.useCallback((resourceName: string) => {
+    setActiveItem({ title: resourceName, icon: File, isActive: true })
+    fetch(`/api/resources/${resourceName}`)
+      .then((res) => res.json())
+      .then((files) => setFiles(files))
+      .catch((error) => {
+        console.error('Error fetching files:', error)
+        setFiles([])
+      })
+  }, [])
+  
+  // 初始化资源列表
   React.useEffect(() => {
     fetch("/api/resources")
       .then((res) => res.json())
       .then((data) => {
         setResources(data)
-        setActiveItem({ title: data[0], icon: File, isActive: true })
-        // 加载第一个资源的文件列表
-        if (data[0]) {
-          fetch(`/api/resources/${data[0]}`)
-            .then((res) => res.json())
-            .then((files) => setFiles(files))
+        
+        // 检查当前URL是否匹配某个资源
+        const urlInfo = getActiveResourceFromUrl()
+        if (urlInfo && data.includes(urlInfo.dirname)) {
+          // 如果URL匹配，设置对应的资源为活动状态
+          setActiveResource(urlInfo.dirname)
+        } else if (data[0]) {
+          // 否则设置第一个资源为默认活动状态
+          setActiveResource(data[0])
         }
       })
   }, [])
+  
+  // 监听URL变化，自动设置活动资源
+  React.useEffect(() => {
+    const urlInfo = getActiveResourceFromUrl()
+    if (urlInfo && resources.includes(urlInfo.dirname)) {
+      // 只有当前活动项不是目标资源时才更新
+      if (activeItem.title !== urlInfo.dirname) {
+        setActiveResource(urlInfo.dirname)
+      }
+    }
+  }, [pathname, resources, activeItem.title, getActiveResourceFromUrl, setActiveResource])
 
   return (
     <Sidebar
@@ -227,34 +273,32 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroup>
             <SidebarGroupContent className="px-1.5 md:px-0">
               <SidebarMenu>
-                {resources.map((item) => (
-                  <SidebarMenuItem key={item}>
-                    <SidebarMenuButton
-                      tooltip={{
-                        children: item,
-                        hidden: false,
-                      }}
-                      onClick={() => {
-                        setActiveItem({ title: item, icon: File, isActive: true })
-                        // 调用新的 API 端点获取文件列表
-                        fetch(`/api/resources/${item}`)
-                          .then((res) => res.json())
-                          .then((files) => setFiles(files))
-                          .catch((error) => {
-                            console.error('Error fetching files:', error)
-                            setFiles([])
-                          })
-                      }}
-                      isActive={activeItem.title === item}
-                    >
-                      <Avatar className="flex size-4 items-center justify-center">
-                        <AvatarFallback className="text-xs">
-                          {item.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {resources.map((item) => {
+                  const isActive = activeItem.title === item
+                  return (
+                    <SidebarMenuItem key={item}>
+                      <SidebarMenuButton
+                        tooltip={{
+                          children: item,
+                          hidden: false,
+                        }}
+                        onClick={() => {
+                          setActiveResource(item)
+                        }}
+                        isActive={isActive}
+                        className={isActive ? 'bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/20 dark:hover:bg-blue-900/30' : ''}
+                      >
+                        <Avatar className="flex size-4 items-center justify-center">
+                          <AvatarFallback className={`text-xs ${
+                            isActive ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
+                          }`}>
+                            {item.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

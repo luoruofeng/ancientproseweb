@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -12,7 +12,7 @@ export default function ProsePage() {
   const params = useParams();
   const [proseDataArray, setProseDataArray] = useState<AncientProseData[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [currentId, setCurrentId] = useState(1);
+  const [currentId, setCurrentId] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [contentLoading, setContentLoading] = useState(false);
@@ -54,175 +54,100 @@ export default function ProsePage() {
       setTotalCount(data.count);
     } catch (err) {
       console.error('Failed to load total count:', err);
-      // 如果获取总数失败，使用当前数组长度作为fallback
-      setTotalCount(proseDataArray.length);
-    }
-  }, [dirname, subdirname, proseDataArray.length]);
-  
-  // 初始化时设置默认ID和加载总数量
-  useEffect(() => {
-    setCurrentId(1);
-    loadTotalCount();
-  }, [loadTotalCount]);
-  
-  // 初始加载数据的函数
-  const loadProseData = useCallback(async (id: number) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch(`/api/prose/index/${dirname}/${subdirname}/${id}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data: AncientProseData[] = await response.json();
-      setProseDataArray(data);
-      
-      // 找到当前ID在数组中的位置
-      const index = data.findIndex(item => item.id === id);
-      if (index !== -1) {
-        setCurrentIndex(index);
-      } else {
-        // 如果当前ID不在数组中，设置为第一个
-        setCurrentIndex(0);
-        if (data.length > 0) {
-          setCurrentId(data[0].id);
-        }
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '加载数据失败');
-    } finally {
-      setLoading(false);
     }
   }, [dirname, subdirname]);
   
-  // 加载单个数据项的函数
-  const loadSingleProseData = useCallback(async (id: number) => {
-    setContentLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch(`/api/prose/index/${dirname}/${subdirname}/${id}`);
-      if (!response.ok) {
-        // 如果单个数据加载失败，回退到加载整个数组
-        console.warn(`Failed to load single item ${id}, falling back to array load`);
-        await loadProseData(id);
-        return;
-      }
-      
-      const dataArray: AncientProseData[] = await response.json();
-      // 从返回的数组中找到匹配的ID
-      const data = dataArray.find(item => item.id === id);
-      if (!data) {
-        console.warn(`Item with id ${id} not found in response, falling back to array load`);
-        await loadProseData(id);
-        return;
-      }
-      // 更新当前数据，不重新加载整个数组
-      setProseDataArray(prev => {
-        const newArray = [...prev];
-        const existingIndex = newArray.findIndex(item => item.id === id);
-        if (existingIndex !== -1) {
-          newArray[existingIndex] = data;
-        } else {
-          newArray.push(data);
-        }
-        return newArray;
-      });
-      
-      // 找到当前ID在数组中的位置
-      setCurrentIndex(prev => {
-        // 使用更新后的数组来查找索引
-        const newArray = [...proseDataArray];
-        const existingIndex = newArray.findIndex(item => item.id === id);
-        if (existingIndex !== -1) {
-          return existingIndex;
-        } else {
-          // 如果是新添加的数据，返回数组末尾的索引
-          return newArray.length;
-        }
-      });
-    } catch (err) {
-      console.warn(`Error loading single item ${id}, falling back to array load:`, err);
-      // 如果出错，回退到加载整个数组
-      await loadProseData(id);
-    } finally {
-      setContentLoading(false);
-    }
-  }, [dirname, subdirname, proseDataArray, loadProseData]);
-  
-  // 当currentId变化时加载数据
+  // 当书本（目录）变化时，重置状态
   useEffect(() => {
-    // 检查数据是否已经在数组中
-    const existingData = proseDataArray.find(item => item.id === currentId);
-    if (!existingData) {
-      // 如果数组为空（初始加载），使用loadProseData加载整个数组
-      if (proseDataArray.length === 0) {
-        loadProseData(currentId);
-      } else {
-        // 否则只加载单个数据项
-        loadSingleProseData(currentId);
-      }
-    } else {
-      // 如果数据已存在，只需要更新索引
-      const index = proseDataArray.findIndex(item => item.id === currentId);
-      setCurrentIndex(index);
-    }
-  }, [currentId, proseDataArray, loadProseData, loadSingleProseData]);
+    setProseDataArray([]);
+    setCurrentId(0);
+    setCurrentIndex(0);
+    loadTotalCount();
+  }, [dirname, subdirname]);
   
-  // 移除URL更新逻辑，ID仅作为内部状态管理
+  const proseDataRef = useRef<AncientProseData[]>([]);
+
+  useEffect(() => {
+    proseDataRef.current = proseDataArray;
+  }, [proseDataArray]);
+
+  useEffect(() => {
+    const processData = async () => {
+      // Reading from the ref avoids dependency on proseDataArray
+      const existingIndex = proseDataRef.current.findIndex(item => item.id === currentId);
+
+      if (existingIndex !== -1) {
+        // If data exists, just sync the index
+        if (currentIndex !== existingIndex) {
+          setCurrentIndex(existingIndex);
+        }
+        return;
+      }
+
+      // If data doesn't exist, fetch it
+      setContentLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(`/api/prose/index/${dirname}/${subdirname}/${currentId}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const newDataArray: AncientProseData[] = await response.json();
+
+        // Create the new array based on the ref's current value
+        const newMergedArray = [...proseDataRef.current];
+        const existingIds = new Set(newMergedArray.map(item => item.id));
+        newDataArray.forEach(newItem => {
+            if (!existingIds.has(newItem.id)) {
+                newMergedArray.push(newItem);
+            }
+        });
+        newMergedArray.sort((a, b) => a.id - b.id);
+
+        const newIndex = newMergedArray.findIndex(item => item.id === currentId);
+
+        // Batch state updates
+        setProseDataArray(newMergedArray);
+        if (newIndex !== -1) {
+            setCurrentIndex(newIndex);
+        }
+
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '加载数据失败');
+      } finally {
+        setContentLoading(false);
+      }
+    };
+
+    if (totalCount > 0) {
+        processData();
+    }
+    // This effect runs only when the ID or book changes, not when data or index changes.
+  }, [currentId, dirname, subdirname, totalCount]);
   
   // 处理上一条
   const handlePrevious = useCallback(() => {
     const newId = currentId - 1;
-    if (newId > 0) {
+    if (newId >= 0) {
       setCurrentId(newId);
-      // 检查数据是否已经在数组中
-      const existingData = proseDataArray.find(item => item.id === newId);
-      if (!existingData) {
-        loadSingleProseData(newId);
-      } else {
-        // 如果数据已存在，只需要更新索引
-        const index = proseDataArray.findIndex(item => item.id === newId);
-        setCurrentIndex(index);
-      }
     }
-  }, [currentId, proseDataArray, loadSingleProseData]);
+  }, [currentId]);
   
   // 处理下一条
   const handleNext = useCallback(() => {
     const newId = currentId + 1;
-    if (newId <= totalCount) {
+    if (newId < totalCount) {
       setCurrentId(newId);
-      // 检查数据是否已经在数组中
-      const existingData = proseDataArray.find(item => item.id === newId);
-      if (!existingData) {
-        loadSingleProseData(newId);
-      } else {
-        // 如果数据已存在，只需要更新索引
-        const index = proseDataArray.findIndex(item => item.id === newId);
-        setCurrentIndex(index);
-      }
     }
-  }, [currentId, totalCount, proseDataArray, loadSingleProseData]);
+  }, [currentId, totalCount]);
   
   // 处理slider变化
   const handleSliderChange = useCallback((value: number[]) => {
-    const newGlobalIndex = value[0] + 1; // slider从0开始，ID从1开始
-    const newId = newGlobalIndex;
+    const newId = value[0]; // slider从0开始，ID也从0开始
     
     setCurrentId(newId);
-    // 检查数据是否已经在数组中
-    const existingData = proseDataArray.find(item => item.id === newId);
-    if (!existingData) {
-      loadSingleProseData(newId);
-    } else {
-      // 如果数据已存在，只需要更新索引
-      const index = proseDataArray.findIndex(item => item.id === newId);
-      setCurrentIndex(index);
-    }
-  }, [proseDataArray, loadSingleProseData]);
+  }, []);
   
   // 切换秒数设置
   const toggleInterval = useCallback(() => {
@@ -247,6 +172,14 @@ export default function ProsePage() {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-lg text-red-500">错误: {error}</div>
+      </div>
+    );
+  }
+
+  if (contentLoading && proseDataArray.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
@@ -322,7 +255,7 @@ export default function ProsePage() {
           size="lg"
           onClick={handlePrevious}
           className="mr-8"
-          disabled={contentLoading || currentId === 1}
+          disabled={contentLoading || currentId === 0}
         >
           <ChevronLeft className="h-6 w-6" />
         </Button>
@@ -372,7 +305,7 @@ export default function ProsePage() {
           size="lg"
           onClick={handleNext}
           className="ml-8"
-          disabled={contentLoading || currentId >= totalCount}
+          disabled={contentLoading || currentId >= totalCount - 1}
         >
           <ChevronRight className="h-6 w-6" />
         </Button>
@@ -382,10 +315,10 @@ export default function ProsePage() {
       <div className="p-6 border-t">
         <div className="max-w-4xl mx-auto">
           <div className="mb-2 text-sm text-muted-foreground text-center">
-            {currentId} / {totalCount}
+            {currentId + 1} / {totalCount}
           </div>
           <Slider
-            value={[currentId - 1]} // slider值从0开始，但ID从1开始
+            value={[currentId]} // slider值从0开始，ID也从0开始
             onValueChange={handleSliderChange}
             max={totalCount - 1}
             min={0}

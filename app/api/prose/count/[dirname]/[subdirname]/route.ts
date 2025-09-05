@@ -4,10 +4,10 @@ import { getTotalJsonlObjectCount } from "@/lib/jsonl";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { dirname: string; subdirname: string } }
+  { params }: { params: Promise<{ dirname: string; subdirname: string }> }
 ) {
   try {
-    const { dirname, subdirname } = params;
+    const { dirname, subdirname } = await params;
 
     // 构建文件夹的完整路径
     const folderPath = path.join(
