@@ -17,6 +17,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import React from "react"
+import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

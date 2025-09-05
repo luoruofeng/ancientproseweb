@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { ArchiveX, Command, File, Inbox, Send, Trash2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { NavUser } from "@/components/nav-user"
@@ -144,6 +145,31 @@ const data = {
   ],
 }
 
+// FileItem组件用于处理文件点击导航
+function FileItem({ fileName, dirname }: { fileName: string; dirname: string }) {
+  const router = useRouter()
+  
+  const handleClick = () => {
+    // 导航到古文页面，使用dirname作为第一个参数，fileName作为第二个参数
+    router.push(`/prose/${encodeURIComponent(dirname)}/${encodeURIComponent(fileName)}`)
+  }
+  
+  return (
+    <a
+      href="#"
+      onClick={(e) => {
+        e.preventDefault()
+        handleClick()
+      }}
+      className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex flex-col items-start gap-2 border-b p-4 text-sm leading-tight whitespace-nowrap last:border-b-0 cursor-pointer"
+    >
+      <div className="flex w-full items-center gap-2">
+        <span>{fileName}</span>
+      </div>
+    </a>
+  )
+}
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   // Note: I'm using state to show active item.
   // IRL you should use the url/router.
@@ -257,15 +283,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroup className="px-0">
             <SidebarGroupContent>
               {files.map((fileName) => (
-                <a
-                  href="#"
+                <FileItem
                   key={fileName}
-                  className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex flex-col items-start gap-2 border-b p-4 text-sm leading-tight whitespace-nowrap last:border-b-0"
-                >
-                  <div className="flex w-full items-center gap-2">
-                    <span>{fileName}</span>
-                  </div>
-                </a>
+                  fileName={fileName}
+                  dirname={activeItem.title}
+                />
               ))}
             </SidebarGroupContent>
           </SidebarGroup>
