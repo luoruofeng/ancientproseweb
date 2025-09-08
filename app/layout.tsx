@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/sidebar"
 import React from "react"
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb"
+import { ProseProvider } from "@/app/prose-context"
+import { ProseControls } from "@/components/prose-controls"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,6 +47,7 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <ProseProvider>
         <SidebarProvider
           style={
             {
@@ -60,21 +63,14 @@ export default function RootLayout({
                 orientation="vertical"
                 className="mr-2 data-[orientation=vertical]:h-4"
               />
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem className="hidden md:block">
-                    <BreadcrumbLink href="#">All Inboxes</BreadcrumbLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator className="hidden md:block" />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>Inbox</BreadcrumbPage>
-                  </BreadcrumbItem>
-                </BreadcrumbList>
-              </Breadcrumb>
+              <DynamicBreadcrumb />
+              <div className="flex-1" />
+              <ProseControls />
             </header>
             {children}
           </SidebarInset>
         </SidebarProvider>
+        </ProseProvider>
       </body>
     </html>
   )

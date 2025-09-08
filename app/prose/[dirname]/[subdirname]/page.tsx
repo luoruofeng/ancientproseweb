@@ -1,12 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { ChevronLeft, ChevronRight, Play, Pause, Volume2, Clock, Loader2 } from 'lucide-react';
 import { AncientProseData } from '@/lib/serialization';
+import { useProse } from '@/app/prose-context';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export default function ProsePage() {
   const params = useParams();
@@ -16,18 +23,36 @@ export default function ProsePage() {
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [contentLoading, setContentLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // 控制状态
-  const [isAutoPlay, setIsAutoPlay] = useState(false);
-  const [showChinese, setShowChinese] = useState(true);
-  const [showEnglish, setShowEnglish] = useState(false);
-  const [showJapanese, setShowJapanese] = useState(false);
-  const [autoPlayInterval, setAutoPlayInterval] = useState(5); // 秒数
+  const {
+    isAutoPlay,
+    autoPlayInterval,
+    showChinese,
+    showEnglish,
+    showJapanese,
+  } = useProse();
   
   // 路径参数
   const dirname = decodeURIComponent(params.dirname as string);
   const subdirname = decodeURIComponent(params.subdirname as string);
+  
+  // 处理上一条
+  const handlePrevious = useCallback(() => {
+    const newId = currentId - 1;
+    if (newId >= 0) {
+      setCurrentId(newId);
+    }
+  }, [currentId]);
+  
+  // 处理下一条
+  const handleNext = useCallback(() => {
+    const newId = currentId + 1;
+    if (newId < totalCount) {
+      setCurrentId(newId);
+    }
+  }, [currentId, totalCount]);
   
   // 自动翻页定时器
   useEffect(() => {
@@ -41,6 +66,23 @@ export default function ProsePage() {
       if (timer) clearInterval(timer);
     };
   }, [isAutoPlay, autoPlayInterval, currentIndex]);
+
+  // 键盘左右箭头事件
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowLeft') {
+        handlePrevious();
+      } else if (event.key === 'ArrowRight') {
+        handleNext();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handlePrevious, handleNext]);
   
   // 获取总数量的函数
   const loadTotalCount = useCallback(async () => {
@@ -59,6 +101,7 @@ export default function ProsePage() {
   
   // 当书本（目录）变化时，重置状态
   useEffect(() => {
+    setContentLoading(true);
     setProseDataArray([]);
     setCurrentId(0);
     setCurrentIndex(0);
@@ -73,19 +116,24 @@ export default function ProsePage() {
 
   useEffect(() => {
     const processData = async () => {
-      // Reading from the ref avoids dependency on proseDataArray
       const existingIndex = proseDataRef.current.findIndex(item => item.id === currentId);
 
-      if (existingIndex !== -1) {
-        // If data exists, just sync the index
-        if (currentIndex !== existingIndex) {
-          setCurrentIndex(existingIndex);
-        }
+      if (existingIndex !== -1 && currentIndex === existingIndex) {
         return;
       }
 
-      // If data doesn't exist, fetch it
       setContentLoading(true);
+      await new Promise(res => setTimeout(res, 300));
+
+      if (existingIndex !== -1) {
+        if (currentIndex !== existingIndex) {
+          setCurrentIndex(existingIndex);
+        }
+        setContentLoading(false);
+        return;
+      }
+
+      setIsFetching(true);
       setError(null);
 
       try {
@@ -95,7 +143,6 @@ export default function ProsePage() {
         }
         const newDataArray: AncientProseData[] = await response.json();
 
-        // Create the new array based on the ref's current value
         const newMergedArray = [...proseDataRef.current];
         const existingIds = new Set(newMergedArray.map(item => item.id));
         newDataArray.forEach(newItem => {
@@ -107,7 +154,6 @@ export default function ProsePage() {
 
         const newIndex = newMergedArray.findIndex(item => item.id === currentId);
 
-        // Batch state updates
         setProseDataArray(newMergedArray);
         if (newIndex !== -1) {
             setCurrentIndex(newIndex);
@@ -116,31 +162,18 @@ export default function ProsePage() {
       } catch (err) {
         setError(err instanceof Error ? err.message : '加载数据失败');
       } finally {
+        setIsFetching(false);
         setContentLoading(false);
       }
     };
 
     if (totalCount > 0) {
         processData();
+    } else {
+        setContentLoading(false);
+        setProseDataArray([]);
     }
-    // This effect runs only when the ID or book changes, not when data or index changes.
-  }, [currentId, dirname, subdirname, totalCount]);
-  
-  // 处理上一条
-  const handlePrevious = useCallback(() => {
-    const newId = currentId - 1;
-    if (newId >= 0) {
-      setCurrentId(newId);
-    }
-  }, [currentId]);
-  
-  // 处理下一条
-  const handleNext = useCallback(() => {
-    const newId = currentId + 1;
-    if (newId < totalCount) {
-      setCurrentId(newId);
-    }
-  }, [currentId, totalCount]);
+  }, [currentId, dirname, subdirname, totalCount, currentIndex]);
   
   // 处理slider变化
   const handleSliderChange = useCallback((value: number[]) => {
@@ -154,11 +187,88 @@ export default function ProsePage() {
     const intervals = [5, 10, 20, 30];
     const currentIdx = intervals.indexOf(autoPlayInterval);
     const nextIdx = (currentIdx + 1) % intervals.length;
-    setAutoPlayInterval(intervals[nextIdx]);
+// 需要从 useProse 中获取 setAutoPlayInterval 函数
+const { setAutoPlayInterval } = useProse();
+setAutoPlayInterval(intervals[nextIdx]);
   }, [autoPlayInterval]);
   
   // 获取当前显示的数据
   const currentData = proseDataArray[currentIndex];
+  
+  // 处理原文中的注释词汇，添加Tooltip和下划线
+  const processOriginalText = useCallback((text: string, annotations: any[]) => {
+    if (!text || !annotations || annotations.length === 0) {
+      return <span>{text}</span>;
+    }
+    
+    // 收集所有注释的key和对应的value
+    const annotationMap: { [key: string]: string } = {};
+    annotations.forEach(annotation => {
+      Object.keys(annotation).forEach(key => {
+        if (text.includes(key)) {
+          annotationMap[key] = annotation[key];
+        }
+      });
+    });
+    
+    const annotationKeys = Object.keys(annotationMap);
+    
+    if (annotationKeys.length === 0) {
+      return <span>{text}</span>;
+    }
+    
+    // 按长度降序排序，避免短词覆盖长词
+    annotationKeys.sort((a, b) => b.length - a.length);
+    
+    // 创建一个数组来存储文本片段和组件
+    let parts: (string | React.ReactElement)[] = [text];
+    
+    // 为每个匹配的词添加Tooltip
+    annotationKeys.forEach((key, index) => {
+      const newParts: (string | React.ReactElement)[] = [];
+      
+      parts.forEach(part => {
+        if (typeof part === 'string') {
+          const regex = new RegExp(`(${key})`, 'g');
+          const segments = part.split(regex);
+          
+          segments.forEach((segment, segIndex) => {
+            if (segment === key) {
+              newParts.push(
+                <Tooltip key={`${index}-${segIndex}`}>
+                   <TooltipTrigger asChild>
+                     <span 
+                       className="hover:bg-primary hover:text-primary-foreground transition-all duration-200 hover:[text-decoration-color:gray]"
+                       style={{
+                         textDecoration: 'underline',
+                         textDecorationColor: 'var(--primary)',
+                         textUnderlineOffset: '6px',
+                         textDecorationThickness: '2px',
+                         cursor: 'help'
+                       }}
+                     >
+                       {segment}
+                     </span>
+                   </TooltipTrigger>
+                   <TooltipContent>
+                     <p>{annotationMap[key]}</p>
+                   </TooltipContent>
+                 </Tooltip>
+              );
+            } else if (segment) {
+              newParts.push(segment);
+            }
+          });
+        } else {
+          newParts.push(part);
+        }
+      });
+      
+      parts = newParts;
+    });
+    
+    return <span>{parts}</span>;
+  }, []);
   
   if (loading) {
     return (
@@ -187,66 +297,13 @@ export default function ProsePage() {
   if (!currentData) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-lg">暂无数据</div>
+        <div className="text-lg">加载数据</div>
       </div>
     );
   }
   
   return (
     <div className="flex flex-col h-screen bg-background">
-      {/* 顶部控制栏 */}
-      <div className="flex items-center justify-end gap-4 p-4 border-b">
-        {/* 朗读按钮 */}
-        <Button variant="outline" size="sm">
-          <Volume2 className="h-4 w-4" />
-        </Button>
-        
-        {/* 自动翻页开关 */}
-        <div className="flex items-center gap-2">
-          <Switch
-            checked={isAutoPlay}
-            onCheckedChange={setIsAutoPlay}
-          />
-          {isAutoPlay ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-        </div>
-        
-        {/* 语言切换 */}
-        <div className="flex items-center gap-2">
-          <Button
-            variant={showChinese ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowChinese(!showChinese)}
-          >
-            中
-          </Button>
-          <Button
-            variant={showEnglish ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowEnglish(!showEnglish)}
-          >
-            EN
-          </Button>
-          <Button
-            variant={showJapanese ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowJapanese(!showJapanese)}
-          >
-            JP
-          </Button>
-        </div>
-        
-        {/* 秒数设置 */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={toggleInterval}
-          className="flex items-center gap-1"
-        >
-          <Clock className="h-4 w-4" />
-          {autoPlayInterval}s
-        </Button>
-      </div>
-      
       {/* 主要内容区域 */}
       <div className="flex-1 flex items-center justify-center p-8">
         {/* 左侧上一条按钮 */}
@@ -264,17 +321,21 @@ export default function ProsePage() {
         <div className="flex-1 max-w-4xl mx-8 relative">
           {contentLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10 rounded-lg">
-              <div className="flex flex-col items-center gap-2">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="text-sm text-muted-foreground">加载中...</span>
-              </div>
+              {isFetching && (
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <span className="text-sm text-muted-foreground">加载中...</span>
+                </div>
+              )}
             </div>
           )}
-          <div className={`text-left space-y-6 transition-all duration-300 ${contentLoading ? 'opacity-30 scale-95' : 'opacity-100 scale-100'}`}>
+          <div className={`text-left space-y-6 transition-all duration-300 ${contentLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
             {/* 原文 */}
-            <div className="text-lg font-medium text-foreground leading-relaxed">
-              {currentData.original}
-            </div>
+            <TooltipProvider>
+              <div className="text-lg font-medium text-foreground leading-relaxed">
+                {processOriginalText(currentData.original, currentData.annotation)}
+              </div>
+            </TooltipProvider>
             
             {/* 中文描述 */}
             {showChinese && currentData.description && (
