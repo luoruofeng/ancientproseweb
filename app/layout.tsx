@@ -20,6 +20,7 @@ import React from "react"
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb"
 import { ProseProvider } from "@/app/prose-context"
 import { ProseControls } from "@/components/prose-controls"
+import MusicPlayer from "@/components/music-player";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -57,7 +58,7 @@ export default function RootLayout({
         >
           <AppSidebar />
           <SidebarInset>
-            <header className="bg-background sticky top-0 flex shrink-0 items-center gap-2 border-b p-4">
+            <header className="bg-background flex shrink-0 items-center gap-2 border-b p-4">
               <SidebarTrigger className="-ml-1" />
               <Separator
                 orientation="vertical"
@@ -66,6 +67,7 @@ export default function RootLayout({
               <DynamicBreadcrumb />
               <div className="flex-1" />
               <ProseControls />
+              <MusicPlayer />
             </header>
             {children}
           </SidebarInset>

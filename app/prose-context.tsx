@@ -21,7 +21,7 @@ export function ProseProvider({ children }: { children: ReactNode }) {
   const [showChinese, setShowChinese] = useState(true);
   const [showEnglish, setShowEnglish] = useState(false);
   const [showJapanese, setShowJapanese] = useState(false);
-  const [isReadingAloud, setIsReadingAloud] = useState(false);
+  const [isReadingAloud, setIsReadingAloud] = useState(true);
 
   const value = {
     showChinese,
