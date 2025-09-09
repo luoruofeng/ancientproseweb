@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { ChevronLeft, ChevronRight, Play, Pause, Volume2, Clock, Loader2 } from 'lucide-react';
 import { AncientProseData } from '@/lib/serialization';
 import { useProse } from '@/app/prose-context';
+import { getReadingProgress, setReadingProgress } from '@/lib/cache';
 import {
   Tooltip,
   TooltipContent,
@@ -15,6 +16,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { VoicePlayer } from '@/components/voice-player';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { YoudaoTranslation } from '@/lib/youdao';
 
 type PlayingState = {
   language: string | null;
@@ -23,13 +30,151 @@ type PlayingState = {
   hasError: boolean;
 };
 
+const EnglishWord = ({ word }: { word: string }) => {
+  const [translation, setTranslation] = useState<YoudaoTranslation[] | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handleOpenChange = async (open: boolean) => {
+    if (open && !translation) {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`/api/prose/word/translate/${word.toLowerCase()}`);
+        if (response.ok) {
+          const data = await response.json();
+          setTranslation(data);
+        } else {
+          setTranslation([]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch translation", error);
+        setTranslation([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const handlePlaySound = async () => {
+    if (isPlaying) {
+      audioRef.current?.pause();
+      setIsPlaying(false);
+      return;
+    }
+    
+    if (audioRef.current) {
+      audioRef.current.play();
+      setIsPlaying(true);
+      return;
+    }
+
+    setIsAudioLoading(true);
+    try {
+      const audioSrc = `/api/prose/word/voice/${word}`;
+      const audio = new Audio(audioSrc);
+      audioRef.current = audio;
+      
+      audio.addEventListener('canplaythrough', () => {
+        setIsAudioLoading(false);
+        setIsPlaying(true);
+        audio.play();
+      });
+
+      audio.addEventListener('ended', () => {
+        setIsPlaying(false);
+        audioRef.current = null;
+      });
+
+      audio.addEventListener('error', () => {
+        setIsAudioLoading(false);
+        setIsPlaying(false);
+      });
+
+    } catch (error) {
+      console.error("Failed to play sound", error);
+      setIsAudioLoading(false);
+    }
+  };
+
+  return (
+    <Popover onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <span className="hover:bg-primary hover:text-primary-foreground transition-all duration-200 cursor-pointer">{word}</span>
+      </PopoverTrigger>
+      <PopoverContent className="w-80">
+        {isLoading ? (
+          <div className="flex items-center justify-center p-4">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        ) : (
+          translation && (
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium leading-none">{word}</h4>
+                  <Button onClick={handlePlaySound} variant="ghost" size="sm" className="p-1 h-auto">
+                    {isAudioLoading || isPlaying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {translation.length > 0 ? (
+                    <ul className="space-y-1">
+                      {translation.slice(0, 5).map((item, index) => (
+                        <li key={index}>
+                          <span className="font-semibold">{item.entry}</span>: {item.explain}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>No translation found.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+const processEnglishText = (text: string) => {
+  if (!text) return null;
+  const elements: (string | React.ReactElement)[] = [];
+  let lastIndex = 0;
+
+  // Regex to find words, including those with apostrophes
+  const regex = /([a-zA-Z'’]+)/g;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    // Add the text before the word
+    if (match.index > lastIndex) {
+      elements.push(text.substring(lastIndex, match.index));
+    }
+    // Add the word component
+    const word = match[0];
+    elements.push(<EnglishWord key={match.index} word={word} />);
+    lastIndex = regex.lastIndex;
+  }
+
+  // Add any remaining text after the last word
+  if (lastIndex < text.length) {
+    elements.push(text.substring(lastIndex));
+  }
+
+  return <>{elements}</>;
+};
+
 export default function ProsePage() {
   const params = useParams();
   const [proseDataArray, setProseDataArray] = useState<AncientProseData[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentId, setCurrentId] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [contentLoading, setContentLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +198,20 @@ export default function ProsePage() {
   const dirname = decodeURIComponent(params.dirname as string);
   const subdirname = decodeURIComponent(params.subdirname as string);
   
+  useEffect(() => {
+    const savedId = getReadingProgress(dirname, subdirname);
+    if (savedId !== null) {
+      setCurrentId(savedId);
+    }
+    setLoading(false);
+  }, [dirname, subdirname]);
+
+  useEffect(() => {
+    if (!loading) {
+      setReadingProgress(dirname, subdirname, currentId);
+    }
+  }, [currentId, dirname, subdirname, loading]);
+
   // 处理上一条
   const handlePrevious = useCallback(() => {
     if (isNavigationLocked) return;
@@ -107,7 +266,8 @@ export default function ProsePage() {
   useEffect(() => {
     setContentLoading(true);
     setProseDataArray([]);
-    setCurrentId(0);
+    const savedId = getReadingProgress(dirname, subdirname);
+    setCurrentId(savedId !== null ? savedId : 0);
     setCurrentIndex(0);
     loadTotalCount();
   }, [dirname, subdirname]);
@@ -356,7 +516,7 @@ export default function ProsePage() {
                      </span>
                    </TooltipTrigger>
                    <TooltipContent>
-                     <p>{annotationMap[key]}</p>
+                     <p className="font-alimama-shuheiti">{annotationMap[key]}</p>
                    </TooltipContent>
                  </Tooltip>
               );
@@ -412,15 +572,24 @@ export default function ProsePage() {
       {/* 主要内容区域 */}
       <div className="flex-1 flex items-center justify-center p-8">
         {/* 左侧上一条按钮 */}
-        <Button
-          variant="outline"
-          size="lg"
-          onClick={handlePrevious}
-          className="mr-8"
-          disabled={isNavigationLocked || currentId === 0}
-        >
-          <ChevronLeft className="h-6 w-6" />
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handlePrevious}
+                className="mr-8"
+                disabled={isNavigationLocked || currentId === 0}
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>上一行</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         
         {/* 中央内容显示区域 */}
         <div className="flex-1 max-w-4xl mx-8 relative">
@@ -437,7 +606,7 @@ export default function ProsePage() {
           <div className={`text-left space-y-6 transition-all duration-300 ${contentLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
             {/* 原文 */}
             <TooltipProvider>
-              <div className="flex items-center gap-2 text-lg font-medium text-foreground leading-relaxed">
+              <div className="flex items-center gap-2 text-lg font-medium text-foreground leading-relaxed font-alimama">
                 <VoicePlayer
                   onTogglePlay={() => handleTogglePlay('original')}
                   isPlaying={playingState.language === 'original' && playingState.isPlaying}
@@ -450,14 +619,17 @@ export default function ProsePage() {
             
             {/* 中文描述 */}
             {showChinese && currentData.description && (
-              <div className="flex items-center gap-2 text-lg text-muted-foreground leading-relaxed">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground leading-relaxed font-alimama-fangyuanti">
                 <VoicePlayer
                   onTogglePlay={() => handleTogglePlay('description')}
                   isPlaying={playingState.language === 'description' && playingState.isPlaying}
                   isLoading={playingState.language === 'description' && playingState.isLoading}
                   hasError={playingState.language === 'description' && playingState.hasError}
                 />
-                <span>{currentData.description}</span>
+                <span>
+                  <span className="font-alimama-shuheiti">译文：</span>
+                  {currentData.description}
+                </span>
               </div>
             )}
             
@@ -470,7 +642,7 @@ export default function ProsePage() {
                   isLoading={playingState.language === 'en' && playingState.isLoading}
                   hasError={playingState.language === 'en' && playingState.hasError}
                 />
-                <span>{currentData.en}</span>
+                <span>{processEnglishText(currentData.en)}</span>
               </div>
             )}
             
@@ -490,15 +662,24 @@ export default function ProsePage() {
         </div>
         
         {/* 右侧下一条按钮 */}
-        <Button
-          variant="outline"
-          size="lg"
-          onClick={handleNext}
-          className="ml-8"
-          disabled={isNavigationLocked || currentId >= totalCount - 1}
-        >
-          <ChevronRight className="h-6 w-6" />
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handleNext}
+                className="ml-8"
+                disabled={isNavigationLocked || currentId >= totalCount - 1}
+              >
+                <ChevronRight className="h-6 w-6" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>下一行</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
       
       {/* 底部slider */}

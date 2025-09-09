@@ -58,7 +58,7 @@ export default function RootLayout({
         >
           <AppSidebar />
           <SidebarInset>
-            <header className="bg-background flex shrink-0 items-center gap-2 border-b p-4">
+            <header className="bg-background flex shrink-0 items-center gap-2 border-b p-4 font-alimama-shuheiti">
               <SidebarTrigger className="-ml-1" />
               <Separator
                 orientation="vertical"
