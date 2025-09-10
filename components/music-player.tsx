@@ -3,12 +3,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Music } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { TOOLTIP_DISPLAY_DURATION } from "@/lib/constants";
 
 const MusicPlayer = () => {
   const [musicFiles, setMusicFiles] = useState<string[]>([]);
   const [currentTrack, setCurrentTrack] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isTooltipVisible, setIsTooltipVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsTooltipVisible(false);
+    }, TOOLTIP_DISPLAY_DURATION);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const fetchMusicFiles = async () => {
@@ -30,57 +46,49 @@ const MusicPlayer = () => {
     if (musicFiles.length > 0 && audioRef.current) {
       const audio = audioRef.current;
       const newSrc = `/background_music/${musicFiles[currentTrack]}`;
-      if (audio.src !== newSrc) {
+      
+      if (!audio.src.endsWith(newSrc)) {
         audio.src = newSrc;
-        // 当切换音轨时，如果正在播放，需要重新播放
-        if (isPlaying) {
-          audio.play().catch(e => {
-            console.error("Play failed", e);
-            setIsPlaying(false); // 播放失败时重置状态
-          });
-        }
+      }
+
+      if (isPlaying) {
+        audio.play().catch(e => {
+          console.error("Play failed", e);
+          setIsPlaying(false);
+        });
+      } else {
+        audio.pause();
       }
     }
-  }, [currentTrack, musicFiles]);
+  }, [currentTrack, musicFiles, isPlaying]);
 
-  const handlePlayPause = async () => {
-    if (!audioRef.current || musicFiles.length === 0) return;
-    
-    const audio = audioRef.current;
-    
-    if (isPlaying) {
-      audio.pause();
-      setIsPlaying(false);
-    } else {
-      try {
-        await audio.play();
-        setIsPlaying(true);
-      } catch (error) {
-        console.error("Play failed:", error);
-        // 播放失败时保持暂停状态
-        setIsPlaying(false);
-      }
-    }
-  };
-
-  const handleNext = () => {
-    setCurrentTrack((prev) => (prev + 1) % musicFiles.length);
+  const handlePlayPause = () => {
+    if (musicFiles.length === 0) return;
+    setIsPlaying(!isPlaying);
   };
 
   const handleEnded = () => {
-    handleNext();
+    setCurrentTrack(prev => (prev + 1) % musicFiles.length);
+    setIsPlaying(true);
   };
 
   return (
     <>
-      <Button variant="outline" size="icon" onClick={handlePlayPause}>
-        <Music className={`h-5 w-5 ${isPlaying ? 'text-blue-500' : 'text-gray-500'}`} />
-      </Button>
+      <TooltipProvider>
+        <Tooltip open={isTooltipVisible} onOpenChange={setIsTooltipVisible}>
+          <TooltipTrigger asChild>
+            <Button variant="outline" size="icon" onClick={handlePlayPause}>
+              <Music className={`h-5 w-5 ${isPlaying ? 'text-blue-500' : 'text-gray-500'}`} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>来段音乐助兴吧！</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <audio
         ref={audioRef}
         onEnded={handleEnded}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
       />
     </>
   );

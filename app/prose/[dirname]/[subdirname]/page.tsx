@@ -179,6 +179,8 @@ export default function ProsePage() {
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isNavigationLocked, setIsNavigationLocked] = useState(false);
+  const [isNextButtonBlue, setIsNextButtonBlue] = useState(false);
+  const [isTooltipVisible, setIsTooltipVisible] = useState(true);
   const [playingState, setPlayingState] = useState<PlayingState>({
     language: null,
     isLoading: false,
@@ -246,6 +248,21 @@ export default function ProsePage() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [handlePrevious, handleNext]);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsNextButtonBlue(prev => !prev);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  useEffect(() => {
+    setIsTooltipVisible(true);
+    const timer = setTimeout(() => {
+      setIsTooltipVisible(false);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [currentId]);
   
   // 获取总数量的函数
   const loadTotalCount = useCallback(async () => {
@@ -663,14 +680,14 @@ export default function ProsePage() {
         
         {/* 右侧下一条按钮 */}
         <TooltipProvider>
-          <Tooltip>
+          <Tooltip open={isTooltipVisible} onOpenChange={setIsTooltipVisible}>
             <TooltipTrigger asChild>
               <Button
-                variant="outline"
+                variant={isNextButtonBlue ? "default" : "outline"}
                 size="lg"
                 onClick={handleNext}
-                className="ml-8"
-                disabled={isNavigationLocked || currentId >= totalCount - 1}
+                className="ml-8 transition-all duration-300"
+                disabled={isNavigationLocked || currentId === totalCount - 1}
               >
                 <ChevronRight className="h-6 w-6" />
               </Button>

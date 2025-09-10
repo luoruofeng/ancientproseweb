@@ -24,6 +24,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { TOOLTIP_DISPLAY_DURATION } from "@/lib/constants";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -510,6 +511,15 @@ function SidebarMenuButton({
 } & VariantProps<typeof sidebarMenuButtonVariants>) {
   const Comp = asChild ? Slot : "button"
   const { isMobile, state } = useSidebar()
+  const [isTooltipVisible, setIsTooltipVisible] = React.useState(true)
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsTooltipVisible(false)
+    }, TOOLTIP_DISPLAY_DURATION)
+
+    return () => clearTimeout(timer)
+  }, [])
 
   const button = (
     <Comp
@@ -533,12 +543,12 @@ function SidebarMenuButton({
   }
 
   return (
-    <Tooltip>
+    <Tooltip open={isTooltipVisible} onOpenChange={setIsTooltipVisible}>
       <TooltipTrigger asChild>{button}</TooltipTrigger>
       <TooltipContent
         side="right"
         align="center"
-        hidden={state !== "collapsed" || isMobile}
+        hidden={!isTooltipVisible && (state !== "collapsed" || isMobile)}
         {...tooltip}
       />
     </Tooltip>

@@ -257,12 +257,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild className="md:h-8 md:p-0">
                 <a href="#">
-                  <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                    <Command className="size-4" />
-                  </div>
+                  <img src="/icon.png" alt="logo" className="size-8 rounded-lg" />
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">Acme Inc</span>
-                    <span className="truncate text-xs">Enterprise</span>
+                    <span className="truncate font-medium">古文观止</span>
+                    <span className="truncate text-xs">Web版</span>
                   </div>
                 </a>
               </SidebarMenuButton>
@@ -290,7 +288,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       >
                         <Avatar className="flex size-4 items-center justify-center">
                           <AvatarFallback className={`text-xs ${
-                            isActive ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
+                            isActive ? 'bg-blue-500 text-white' : 'bg-gray-600 text-gray-100'
                           }`}>
                             {item.charAt(0)}
                           </AvatarFallback>
