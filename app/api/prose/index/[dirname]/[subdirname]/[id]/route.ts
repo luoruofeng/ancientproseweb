@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import { readJsonlFile, getJsonlFilesSorted, getJsonlObjectCount } from "@/lib/jsonl";
-import { AncientProseData } from "@/lib/serialization";
+import { AncientProseData, AncientProseObject } from "@/lib/serialization";
 
 /**
  * GET API路由处理函数
@@ -96,7 +96,7 @@ export async function GET(
     
     // 调用jsonl.ts的readJsonlFile方法读取目标JSONL文件
     // 将构建好的目标文件路径作为参数传入
-    const jsonObjects = await readJsonlFile(targetFilePath);
+    const jsonObjects = await readJsonlFile<AncientProseObject>(targetFilePath);
     
     console.log(`Found ${jsonObjects.length} objects in JSONL file`);
     
@@ -104,7 +104,7 @@ export async function GET(
     // 这是数据转换的核心步骤，将原始JSON对象转换为类型化的AncientProseData对象
     const ancientProseDataArray: AncientProseData[] = jsonObjects.map((obj, index) => {
       try {
-        return AncientProseData.fromObject(obj);
+        return AncientProseData.fromObject(obj as AncientProseObject);
       } catch (error) {
         console.warn(`Failed to convert object at index ${index}:`, error);
         // 如果转换失败，返回一个默认的AncientProseData对象

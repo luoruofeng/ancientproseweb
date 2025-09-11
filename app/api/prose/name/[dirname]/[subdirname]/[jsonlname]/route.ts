@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import { readJsonlFile } from "@/lib/jsonl";
-import { AncientProseData } from "@/lib/serialization";
+import { AncientProseData, AncientProseObject } from "@/lib/serialization";
 
 export async function GET(
   request: NextRequest,
@@ -30,7 +30,7 @@ export async function GET(
     // 遍历对象数组，使用AncientProseData.fromObject方法转换为AncientProseData数组
     const ancientProseDataArray: AncientProseData[] = jsonObjects.map((obj, index) => {
       try {
-        return AncientProseData.fromObject(obj);
+        return AncientProseData.fromObject(obj as AncientProseObject);
       } catch (error) {
         console.warn(`Failed to convert object at index ${index}:`, error);
         // 返回一个默认的AncientProseData对象，或者可以选择跳过这个对象

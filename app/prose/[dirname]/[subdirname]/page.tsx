@@ -4,8 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
-import { ChevronLeft, ChevronRight, Play, Pause, Volume2, Clock, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Volume2, Loader2 } from 'lucide-react';
 import { AncientProseData } from '@/lib/serialization';
 import { useProse } from '@/app/prose-context';
 import { getReadingProgress, setReadingProgress } from '@/lib/cache';
@@ -293,7 +292,7 @@ export default function ProsePage() {
     setCurrentIndex(0);
     setIsInitialLoad(true);
     loadTotalCount();
-  }, [dirname, subdirname]);
+  }, [dirname, subdirname, loadTotalCount]);
   
   const proseDataRef = useRef<AncientProseData[]>([]);
 
@@ -401,7 +400,7 @@ export default function ProsePage() {
         setPlayingState({ language, isLoading: false, isPlaying: false, hasError: true });
       });
   
-    } catch (err) {
+    } catch {
       setPlayingState({ language, isLoading: false, isPlaying: false, hasError: true });
     }
   }, [dirname, subdirname, currentId, playingState.language, playingState.isPlaying]);
@@ -484,7 +483,7 @@ export default function ProsePage() {
   const currentData = proseDataArray[currentIndex];
   
   // 处理原文中的注释词汇，添加Tooltip和下划线
-  const processOriginalText = useCallback((text: string, annotations: any[]) => {
+  const processOriginalText = useCallback((text: string, annotations: Record<string, string>[]) => {
     if (!text || !annotations || annotations.length === 0) {
       return <span>{text}</span>;
     }
@@ -699,7 +698,7 @@ export default function ProsePage() {
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>下一行，也可以按键盘"→"显示</p>
+              <p>下一行，也可以按键盘&quot;→&quot;显示</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

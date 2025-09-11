@@ -1,13 +1,10 @@
-import fs from 'fs';
-import path from 'path';
-
 /**
  * Fetches the pronunciation of an English word from Youdao and saves it as an MP3 file.
  * @param content The English word to fetch.
  * @param type 1 for English pronunciation.
  * @returns The path to the saved MP3 file.
  */
-export async function getEnglishWordVoice(content: string, type: 1 | 2 = 1): Promise<Buffer> {
+export async function getEnglishWordVoice(content: string, type: 1 | 2 = 1): Promise<ArrayBuffer> {
   const url = `https://dict.youdao.com/dictvoice?audio=${content}&type=${type}`;
 
   try {
@@ -17,7 +14,7 @@ export async function getEnglishWordVoice(content: string, type: 1 | 2 = 1): Pro
       throw new Error(`Error downloading audio: ${response.statusText}`);
     }
     const buffer = await response.arrayBuffer();
-    return Buffer.from(buffer);
+    return buffer;
   } catch (error) {
     console.error(`Error downloading audio: ${error}`);
     throw error;

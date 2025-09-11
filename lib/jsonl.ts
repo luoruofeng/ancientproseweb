@@ -6,7 +6,7 @@ import path from 'path';
  * @param filePath JSONL文件的路径
  * @returns 包含所有JSON对象的数组
  */
-export async function readJsonlFile<T = any>(filePath: string): Promise<T[]> {
+export async function readJsonlFile<T = unknown>(filePath: string): Promise<T[]> {
   try {
     // 检查文件是否存在
     if (!fs.existsSync(filePath)) {
@@ -45,7 +45,7 @@ export async function readJsonlFile<T = any>(filePath: string): Promise<T[]> {
  * @param filePath JSONL文件的路径
  * @returns 包含所有JSON对象的数组
  */
-export function readJsonlFileSync<T = any>(filePath: string): T[] {
+export function readJsonlFileSync<T = unknown>(filePath: string): T[] {
   try {
     // 检查文件是否存在
     if (!fs.existsSync(filePath)) {
@@ -84,7 +84,7 @@ export function readJsonlFileSync<T = any>(filePath: string): T[] {
  * @param filePath 要写入的文件路径
  * @param jsonObjects 要写入的JSON对象数组
  */
-export function writeJsonlFile<T = any>(filePath: string, jsonObjects: T[]): void {
+export function writeJsonlFile<T = unknown>(filePath: string, jsonObjects: T[]): void {
   try {
     // 确保目录存在
     const dir = path.dirname(filePath);
@@ -108,7 +108,7 @@ export function writeJsonlFile<T = any>(filePath: string, jsonObjects: T[]): voi
  * @param filePath 要追加的文件路径
  * @param jsonObject 要追加的JSON对象
  */
-export function appendToJsonlFile<T = any>(filePath: string, jsonObject: T): void {
+export function appendToJsonlFile<T = unknown>(filePath: string, jsonObject: T): void {
   try {
     // 确保目录存在
     const dir = path.dirname(filePath);

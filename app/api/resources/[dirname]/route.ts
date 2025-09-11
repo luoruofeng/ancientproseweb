@@ -32,7 +32,7 @@ export async function GET(
         if (propData.sort && Array.isArray(propData.sort)) {
           // 按照 prop.json 中的 sort 字段排序
           const sortOrder = propData.sort;
-          sortedFiles = sortOrder.filter(fileName => filteredFiles.includes(fileName));
+          sortedFiles = sortOrder.filter((fileName: string) => filteredFiles.includes(fileName));
           
           // 添加任何不在 sort 列表中但存在于目录中的文件
           const remainingFiles = filteredFiles.filter(file => !sortOrder.includes(file));

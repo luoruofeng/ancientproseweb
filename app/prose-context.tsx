@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
+import React, { createContext, useState, useContext, ReactNode } from 'react';
 
 // Define the shape of the context data
 interface ProseContextType {

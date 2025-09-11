@@ -3,7 +3,7 @@ interface Annotation {
   [key: string]: string;
 }
 
-interface AncientProseObject {
+export interface AncientProseObject {
   original?: string;
   description?: string;
   id?: number;

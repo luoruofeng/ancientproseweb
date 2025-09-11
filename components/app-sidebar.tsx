@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ArchiveX, Command, File, Inbox, Send, Trash2 } from "lucide-react"
+import { ArchiveX, File, Inbox, Send, Trash2 } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -21,6 +21,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Switch } from "@/components/ui/switch"
+import Image from "next/image"
 
 // This is sample data
 const data = {
@@ -180,9 +181,7 @@ function FileItem({ fileName, dirname }: { fileName: string; dirname: string }) 
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
-  const [activeItem, setActiveItem] = React.useState<any>({})
-  const [mails, setMails] = React.useState(data.mails)
-  const { setOpen } = useSidebar()
+  const [activeItem, setActiveItem] = React.useState<{ title: string; icon: React.ElementType; isActive: boolean }>({ title: '', icon: File, isActive: false })
   const [resources, setResources] = React.useState<string[]>([])
   const [files, setFiles] = React.useState<string[]>([])
   
@@ -198,7 +197,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }, [pathname])
   
   // 设置活动项并加载文件列表
-  const setActiveResource = React.useCallback((resourceName: string) => {
+  const setActiveResource: (resourceName: string) => void = React.useCallback((resourceName: string) => {
     setActiveItem({ title: resourceName, icon: File, isActive: true })
     fetch(`/api/resources/${resourceName}`)
       .then((res) => res.json())
@@ -226,7 +225,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           setActiveResource(data[0])
         }
       })
-  }, [])
+  }, [getActiveResourceFromUrl, setActiveResource]);
   
   // 监听URL变化，自动设置活动资源
   React.useEffect(() => {
@@ -257,7 +256,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild className="md:h-8 md:p-0">
                 <a href="#">
-                  <img src="/icon.png" alt="logo" className="size-8 rounded-lg" />
+                  <Image src="/icon.png" alt="logo" className="size-8 rounded-lg" width={32} height={32} />
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">古文观止</span>
                     <span className="truncate text-xs">Web版</span>

@@ -1,5 +1,6 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @font-face {
   font-family: 'AlimamaDongFangDaKai';
@@ -34,9 +35,45 @@
   font-family: 'AlimamaFangYuanTi', sans-serif;
 }
 
+@import "tailwindcss";
+@import "tw-animate-css";
+
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
+@font-face {
+  font-family: 'AlimamaDongFangDaKai';
+  src: url('/fonts/AlimamaDongFangDaKai-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'AlimamaShuHeiTi';
+  src: url('/fonts/AlimamaShuHeiTi-Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'AlimamaFangYuanTi';
+  src: url('/fonts/AlimamaFangYuanTiVF-Thin.ttf') format('truetype');
+  font-weight: 100;
+  font-style: normal;
+}
+
+.font-alimama {
+  font-family: 'AlimamaDongFangDaKai', sans-serif;
+}
+
+.font-alimama-shuheiti {
+  font-family: 'AlimamaShuHeiTi', sans-serif;
+}
+
+.font-alimama-fangyuanti {
+  font-family: 'AlimamaFangYuanTi', sans-serif;
+}
+
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
