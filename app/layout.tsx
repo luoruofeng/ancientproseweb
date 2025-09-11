@@ -1,26 +1,8 @@
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
-import { AppSidebar } from "@/components/app-sidebar"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { Separator } from "@/components/ui/separator"
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
-import React from "react"
-import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb"
 import { ProseProvider } from "@/app/prose-context"
-import { ProseControls } from "@/components/prose-controls"
-import MusicPlayer from "@/components/music-player";
+import { LayoutContent } from "@/components/LayoutContent"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -49,29 +31,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ProseProvider>
-        <SidebarProvider
-          style={
-            {
-              "--sidebar-width": "350px",
-            } as React.CSSProperties
-          }
-        >
-          <AppSidebar />
-          <SidebarInset>
-            <header className="bg-background flex shrink-0 items-center gap-2 border-b p-4 font-alimama-shuheiti">
-              <SidebarTrigger className="-ml-1" />
-              <Separator
-                orientation="vertical"
-                className="mr-2 data-[orientation=vertical]:h-4"
-              />
-              <DynamicBreadcrumb />
-              <div className="flex-1" />
-              <ProseControls />
-              <MusicPlayer />
-            </header>
+          <LayoutContent>
             {children}
-          </SidebarInset>
-        </SidebarProvider>
+          </LayoutContent>
         </ProseProvider>
       </body>
     </html>

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/popover";
 import { YoudaoTranslation } from '@/lib/youdao';
 import { TOOLTIP_DISPLAY_DURATION } from '@/lib/constants';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 type PlayingState = {
   language: string | null;
@@ -189,6 +190,17 @@ export default function ProsePage() {
     hasError: false,
   });
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const isMobile = useIsMobile();
+  const [isUIVisible, setIsUIVisible] = useState(true);
+  
+  // 手指跟随动画状态
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [startX, setStartX] = useState(0);
+  const [currentX, setCurrentX] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
   
   const {
     showChinese,
@@ -249,6 +261,112 @@ export default function ProsePage() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [handlePrevious, handleNext]);
+
+  // 手指跟随触摸手势支持
+  useEffect(() => {
+    if (!isMobile || !containerRef.current) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (isNavigationLocked || isAnimating) return;
+      
+      const touch = e.touches[0];
+      setStartX(touch.clientX);
+      setCurrentX(touch.clientX);
+      setIsDragging(true);
+      setDragOffset(0);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+       if (!isDragging || isNavigationLocked || isAnimating) return;
+       
+       const touch = e.touches[0];
+       const deltaX = touch.clientX - startX;
+       const maxOffset = window.innerWidth * 0.3; // 最大拖拽距离为屏幕宽度的30%
+       
+       // 边界检测和阻尼效果
+       let limitedOffset = deltaX;
+       
+       // 如果已经是第一页，限制向右滑动
+       if (currentId === 0 && deltaX > 0) {
+         limitedOffset = deltaX * 0.3; // 强阻尼
+       }
+       // 如果已经是最后一页，限制向左滑动
+       else if (currentId === totalCount - 1 && deltaX < 0) {
+         limitedOffset = deltaX * 0.3; // 强阻尼
+       }
+       // 正常范围内的阻尼效果
+       else if (Math.abs(deltaX) > maxOffset) {
+         const excess = Math.abs(deltaX) - maxOffset;
+         const dampedExcess = excess * 0.2; // 阻尼系数
+         limitedOffset = deltaX > 0 ? maxOffset + dampedExcess : -(maxOffset + dampedExcess);
+       }
+       
+       setCurrentX(touch.clientX);
+       setDragOffset(limitedOffset);
+     };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (!isDragging || isNavigationLocked || isAnimating) return;
+      
+      const deltaX = dragOffset;
+      const threshold = window.innerWidth * 0.15; // 切换阈值为屏幕宽度的15%
+      
+      setIsDragging(false);
+      setIsAnimating(true);
+      
+      // 判断是否需要切换页面
+      if (Math.abs(deltaX) > threshold) {
+        if (deltaX > 0 && currentId > 0) {
+          // 向右滑动，显示上一条
+          handlePrevious();
+        } else if (deltaX < 0 && currentId < totalCount - 1) {
+          // 向左滑动，显示下一条
+          handleNext();
+        }
+      }
+      
+      // 重置动画状态
+      setTimeout(() => {
+        setDragOffset(0);
+        setIsAnimating(false);
+      }, 300);
+    };
+
+    const element = containerRef.current;
+    element.addEventListener('touchstart', handleTouchStart, { passive: true });
+    element.addEventListener('touchmove', handleTouchMove, { passive: false });
+    element.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+       element.removeEventListener('touchstart', handleTouchStart);
+       element.removeEventListener('touchmove', handleTouchMove);
+       element.removeEventListener('touchend', handleTouchEnd);
+     };
+   }, [isMobile, handlePrevious, handleNext, isNavigationLocked, isDragging, startX, dragOffset, isAnimating, currentId, totalCount]);
+
+  // 移动端UI显示逻辑（移除自动隐藏功能）
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const handleClick = (e: MouseEvent | TouchEvent) => {
+      // 检查点击的是否是空白区域（不是按钮、链接等交互元素）
+      const target = e.target as HTMLElement;
+      if (!target.closest('button') && !target.closest('a') && !target.closest('[role="slider"]')) {
+        setIsUIVisible(true); // 保持UI可见
+      }
+    };
+
+    // 确保UI在移动端始终可见
+    setIsUIVisible(true);
+
+    document.addEventListener('click', handleClick);
+    document.addEventListener('touchend', handleClick);
+
+    return () => {
+      document.removeEventListener('click', handleClick);
+      document.removeEventListener('touchend', handleClick);
+    };
+  }, [isMobile]);
   
   useEffect(() => {
     const interval = setInterval(() => {
@@ -463,11 +581,7 @@ export default function ProsePage() {
     if (contentLoading) {
       setIsNavigationLocked(true);
     } else {
-      const timer = setTimeout(() => {
-        setIsNavigationLocked(false);
-      }, 1000); // 1-second delay
-
-      return () => clearTimeout(timer);
+      setIsNavigationLocked(false); // 立即解锁导航，无延迟
     }
   }, [contentLoading]);
 
@@ -521,27 +635,70 @@ export default function ProsePage() {
           
           segments.forEach((segment, segIndex) => {
             if (segment === key) {
-              newParts.push(
-                <Tooltip key={`${index}-${partIndex}-${segIndex}`}>
-                   <TooltipTrigger asChild>
-                     <span 
-                       className="hover:bg-primary hover:text-primary-foreground transition-all duration-200 hover:[text-decoration-color:gray]"
-                       style={{
-                         textDecoration: 'underline',
-                         textDecorationColor: 'var(--primary)',
-                         textUnderlineOffset: '6px',
-                         textDecorationThickness: '2px',
-                         cursor: 'help'
-                       }}
-                     >
-                       {segment}
-                     </span>
-                   </TooltipTrigger>
-                   <TooltipContent>
-                     <p className="font-alimama-shuheiti">{annotationMap[key]}</p>
-                   </TooltipContent>
-                 </Tooltip>
-              );
+              const TooltipWrapper = () => {
+                const [isOpen, setIsOpen] = useState(false);
+                const touchStartTimeRef = useRef<number>(0);
+                const touchStartPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+                
+                const handleTouchStart = (e: React.TouchEvent) => {
+                  if (isMobile) {
+                    touchStartTimeRef.current = Date.now();
+                    const touch = e.touches[0];
+                    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+                  }
+                };
+                
+                const handleTouchEnd = (e: React.TouchEvent) => {
+                  if (isMobile) {
+                    const touchEndTime = Date.now();
+                    const touchDuration = touchEndTime - touchStartTimeRef.current;
+                    const touch = e.changedTouches[0];
+                    const deltaX = Math.abs(touch.clientX - touchStartPosRef.current.x);
+                    const deltaY = Math.abs(touch.clientY - touchStartPosRef.current.y);
+                    
+                    // 只有在短时间点击且没有明显移动时才显示tooltip
+                    if (touchDuration < 300 && deltaX < 10 && deltaY < 10) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsOpen(!isOpen);
+                    }
+                  }
+                };
+                
+                const handleClick = (e: React.MouseEvent) => {
+                  if (!isMobile) {
+                    // 桌面端保持原有行为
+                    setIsOpen(!isOpen);
+                  }
+                };
+                
+                return (
+                  <Tooltip open={isMobile ? isOpen : undefined} onOpenChange={isMobile ? setIsOpen : undefined}>
+                     <TooltipTrigger asChild>
+                       <span 
+                         className="hover:bg-primary hover:text-primary-foreground transition-all duration-200 hover:[text-decoration-color:gray]"
+                         style={{
+                           textDecoration: 'underline',
+                           textDecorationColor: 'var(--primary)',
+                           textUnderlineOffset: '6px',
+                           textDecorationThickness: '2px',
+                           cursor: 'help'
+                         }}
+                         onTouchStart={handleTouchStart}
+                         onTouchEnd={handleTouchEnd}
+                         onClick={handleClick}
+                       >
+                         {segment}
+                       </span>
+                     </TooltipTrigger>
+                     <TooltipContent>
+                       <p className="font-alimama-shuheiti">{annotationMap[key]}</p>
+                     </TooltipContent>
+                   </Tooltip>
+                );
+              };
+              
+              newParts.push(<TooltipWrapper key={`${index}-${partIndex}-${segIndex}`} />);
             } else if (segment) {
               newParts.push(segment);
             }
@@ -555,7 +712,7 @@ export default function ProsePage() {
     });
     
     return <span>{parts}</span>;
-  }, []);
+  }, [isMobile]);
   
   if (loading) {
     return (
@@ -590,31 +747,50 @@ export default function ProsePage() {
   }
   
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div 
+      ref={containerRef}
+      className="flex flex-col h-screen bg-background"
+    >
       {/* 主要内容区域 */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        {/* 左侧上一条按钮 */}
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={handlePrevious}
-                className="mr-8"
-                disabled={isNavigationLocked || currentId === 0}
-              >
-                <ChevronLeft className="h-6 w-6" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>上一行</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+      <div 
+        className={`flex-1 flex ${isMobile ? 'items-start' : 'items-center'} justify-center ${isMobile ? 'p-4' : 'p-8'}`}
+        style={{
+          ...(isMobile && (isDragging || isAnimating) ? {
+            transform: `translateX(${dragOffset}px)`,
+            transition: isAnimating ? 'transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1)' : 'none'
+          } : {})
+        }}
+      >
+        {/* 左侧上一条按钮 - 桌面端显示 */}
+        {!isMobile && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={handlePrevious}
+                  className="mr-8"
+                  disabled={isNavigationLocked || currentId === 0}
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>上一行</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
         
         {/* 中央内容显示区域 */}
-        <div className="flex-1 max-w-4xl mx-8 relative">
+        <div 
+          ref={contentRef}
+          className={`flex-1 max-w-4xl relative ${isMobile ? 'mx-2' : 'mx-8'}`}
+          style={{
+            ...(isMobile ? { fontSize: '18px', lineHeight: '1.8', wordWrap: 'break-word', overflowWrap: 'break-word' } : {})
+          }}
+        >
           {contentLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10 rounded-lg">
               {isFetching && (
@@ -625,10 +801,10 @@ export default function ProsePage() {
               )}
             </div>
           )}
-          <div className={`text-left space-y-6 transition-all duration-300 ${contentLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+          <div className={`text-left transition-all duration-300 ${isMobile ? 'space-y-4' : 'space-y-6'} ${contentLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
             {/* 原文 */}
             <TooltipProvider>
-              <div className="flex items-center gap-2 text-lg font-medium text-foreground leading-relaxed font-alimama">
+              <div className={`flex items-center gap-2 font-medium text-foreground leading-relaxed font-alimama ${isMobile ? 'text-2xl' : 'text-lg'}`} style={isMobile ? { wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap' } : {}}>
                 <VoicePlayer
                   onTogglePlay={() => handleTogglePlay('original')}
                   isPlaying={playingState.language === 'original' && playingState.isPlaying}
@@ -641,7 +817,7 @@ export default function ProsePage() {
             
             {/* 中文描述 */}
             {showChinese && currentData.description && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground leading-relaxed font-alimama-fangyuanti">
+              <div className={`flex items-center gap-2 text-muted-foreground leading-relaxed font-alimama-fangyuanti ${isMobile ? 'text-xl' : 'text-sm'}`} style={isMobile ? { wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap' } : {}}>
                 <VoicePlayer
                   onTogglePlay={() => handleTogglePlay('description')}
                   isPlaying={playingState.language === 'description' && playingState.isPlaying}
@@ -657,7 +833,7 @@ export default function ProsePage() {
             
             {/* 英文翻译 */}
             {showEnglish && currentData.en && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground leading-relaxed">
+              <div className={`flex items-center gap-2 text-muted-foreground leading-relaxed ${isMobile ? 'text-xl' : 'text-sm'}`} style={isMobile ? { wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap' } : {}}>
                 <VoicePlayer
                   onTogglePlay={() => handleTogglePlay('en')}
                   isPlaying={playingState.language === 'en' && playingState.isPlaying}
@@ -670,7 +846,7 @@ export default function ProsePage() {
             
             {/* 日文翻译 */}
             {showJapanese && currentData.jp && (
-              <div className="flex items-center gap-2 text-lg text-muted-foreground leading-relaxed">
+              <div className={`flex items-center gap-2 text-muted-foreground leading-relaxed ${isMobile ? 'text-xl' : 'text-lg'}`} style={isMobile ? { wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap' } : {}}>
                 <VoicePlayer
                   onTogglePlay={() => handleTogglePlay('jp')}
                   isPlaying={playingState.language === 'jp' && playingState.isPlaying}
@@ -683,32 +859,39 @@ export default function ProsePage() {
           </div>
         </div>
         
-        {/* 右侧下一条按钮 */}
-        <TooltipProvider>
-          <Tooltip open={isTooltipVisible}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={handleNext}
-                className={`ml-8 ${isNextButtonBlue ? 'animate-border-pulse-blue' : ''}`}
-                disabled={isNavigationLocked || currentId === totalCount - 1}
-              >
-                <ChevronRight className="h-6 w-6" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>下一行，也可以按键盘&quot;→&quot;显示</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        {/* 右侧下一条按钮 - 桌面端显示 */}
+        {!isMobile && (
+          <TooltipProvider>
+            <Tooltip open={isTooltipVisible}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={handleNext}
+                  className={`ml-8 ${isNextButtonBlue ? 'animate-border-pulse-blue' : ''}`}
+                  disabled={isNavigationLocked || currentId === totalCount - 1}
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>下一行，也可以按键盘&quot;→&quot;显示</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
       
       {/* 底部slider */}
-      <div className="p-6 border-t">
+      <div className={`border-t ${isMobile ? 'p-3' : 'p-6'}`}>
         <div className="max-w-4xl mx-auto">
-          <div className="mb-2 text-sm text-muted-foreground text-center">
+          <div className={`mb-2 text-muted-foreground text-center ${isMobile ? 'text-xs' : 'text-sm'}`}>
             {currentId + 1} / {totalCount}
+            {isMobile && (
+              <span className="block text-xs text-muted-foreground/70 mt-1">
+                左右滑动翻页
+              </span>
+            )}
           </div>
           <Slider
             value={[currentId]} // slider值从0开始，ID也从0开始
