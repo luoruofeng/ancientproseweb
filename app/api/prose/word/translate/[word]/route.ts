@@ -1,12 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { translateWord } from '@/lib/youdao';
 
 export async function GET(
-  request: Request,
-  { params }: { params: { word: string } }
+  request: NextRequest,
+  context: { params: Promise<{ word: string }> }
 ) {
   try {
-        const word = (await params).word;
+    const { word } = await context.params;
     if (!word) {
       return NextResponse.json({ error: 'Word is required' }, { status: 400 });
     }

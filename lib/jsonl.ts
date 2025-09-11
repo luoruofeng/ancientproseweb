@@ -6,7 +6,7 @@ import path from 'path';
  * @param filePath JSONL文件的路径
  * @returns 包含所有JSON对象的数组
  */
-export async function readJsonlFile(filePath: string): Promise<any[]> {
+export async function readJsonlFile<T = any>(filePath: string): Promise<T[]> {
   try {
     // 检查文件是否存在
     if (!fs.existsSync(filePath)) {
@@ -19,7 +19,7 @@ export async function readJsonlFile(filePath: string): Promise<any[]> {
     // 按行分割内容
     const lines = fileContent.split('\n').filter(line => line.trim() !== '');
     
-    const jsonObjects: any[] = [];
+    const jsonObjects: T[] = [];
     
     // 遍历每一行，解析JSON
     for (let i = 0; i < lines.length; i++) {
@@ -45,7 +45,7 @@ export async function readJsonlFile(filePath: string): Promise<any[]> {
  * @param filePath JSONL文件的路径
  * @returns 包含所有JSON对象的数组
  */
-export function readJsonlFileSync(filePath: string): any[] {
+export function readJsonlFileSync<T = any>(filePath: string): T[] {
   try {
     // 检查文件是否存在
     if (!fs.existsSync(filePath)) {
@@ -58,7 +58,7 @@ export function readJsonlFileSync(filePath: string): any[] {
     // 按行分割内容
     const lines = fileContent.split('\n').filter(line => line.trim() !== '');
     
-    const jsonObjects: any[] = [];
+    const jsonObjects: T[] = [];
     
     // 遍历每一行，解析JSON
     for (let i = 0; i < lines.length; i++) {
@@ -84,7 +84,7 @@ export function readJsonlFileSync(filePath: string): any[] {
  * @param filePath 要写入的文件路径
  * @param jsonObjects 要写入的JSON对象数组
  */
-export function writeJsonlFile(filePath: string, jsonObjects: any[]): void {
+export function writeJsonlFile<T = any>(filePath: string, jsonObjects: T[]): void {
   try {
     // 确保目录存在
     const dir = path.dirname(filePath);
@@ -108,7 +108,7 @@ export function writeJsonlFile(filePath: string, jsonObjects: any[]): void {
  * @param filePath 要追加的文件路径
  * @param jsonObject 要追加的JSON对象
  */
-export function appendToJsonlFile(filePath: string, jsonObject: any): void {
+export function appendToJsonlFile<T = any>(filePath: string, jsonObject: T): void {
   try {
     // 确保目录存在
     const dir = path.dirname(filePath);

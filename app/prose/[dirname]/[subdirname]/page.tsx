@@ -22,6 +22,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { YoudaoTranslation } from '@/lib/youdao';
+import { TOOLTIP_DISPLAY_DURATION } from '@/lib/constants';
 
 type PlayingState = {
   language: string | null;
@@ -181,6 +182,7 @@ export default function ProsePage() {
   const [isNavigationLocked, setIsNavigationLocked] = useState(false);
   const [isNextButtonBlue, setIsNextButtonBlue] = useState(false);
   const [isTooltipVisible, setIsTooltipVisible] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [playingState, setPlayingState] = useState<PlayingState>({
     language: null,
     isLoading: false,
@@ -257,12 +259,15 @@ export default function ProsePage() {
   }, []);
   
   useEffect(() => {
-    setIsTooltipVisible(true);
-    const timer = setTimeout(() => {
-      setIsTooltipVisible(false);
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [currentId]);
+    if (isInitialLoad) {
+      setIsTooltipVisible(true);
+      const timer = setTimeout(() => {
+        setIsTooltipVisible(false);
+        setIsInitialLoad(false);
+      }, TOOLTIP_DISPLAY_DURATION);
+      return () => clearTimeout(timer);
+    }
+  }, [currentId, isInitialLoad]);
   
   // 获取总数量的函数
   const loadTotalCount = useCallback(async () => {
@@ -286,6 +291,7 @@ export default function ProsePage() {
     const savedId = getReadingProgress(dirname, subdirname);
     setCurrentId(savedId !== null ? savedId : 0);
     setCurrentIndex(0);
+    setIsInitialLoad(true);
     loadTotalCount();
   }, [dirname, subdirname]);
   
@@ -680,20 +686,20 @@ export default function ProsePage() {
         
         {/* 右侧下一条按钮 */}
         <TooltipProvider>
-          <Tooltip open={isTooltipVisible} onOpenChange={setIsTooltipVisible}>
+          <Tooltip open={isTooltipVisible}>
             <TooltipTrigger asChild>
               <Button
-                variant={isNextButtonBlue ? "default" : "outline"}
+                variant="outline"
                 size="lg"
                 onClick={handleNext}
-                className="ml-8 transition-all duration-300"
+                className={`ml-8 ${isNextButtonBlue ? 'animate-border-pulse-blue' : ''}`}
                 disabled={isNavigationLocked || currentId === totalCount - 1}
               >
                 <ChevronRight className="h-6 w-6" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>下一行</p>
+              <p>下一行，也可以按键盘"→"显示</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

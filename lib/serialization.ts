@@ -3,6 +3,15 @@ interface Annotation {
   [key: string]: string;
 }
 
+interface AncientProseObject {
+  original?: string;
+  description?: string;
+  id?: number;
+  en?: string;
+  jp?: string;
+  annotation?: Annotation[];
+}
+
 // 古文数据类
 export class AncientProseData {
   original: string;
@@ -63,7 +72,7 @@ export class AncientProseData {
   }
 
   // 静态方法：从对象创建类实例
-  static fromObject(obj: any): AncientProseData {
+  static fromObject(obj: AncientProseObject): AncientProseData {
     if (!obj || typeof obj !== 'object') {
       throw new Error('无效的对象数据');
     }

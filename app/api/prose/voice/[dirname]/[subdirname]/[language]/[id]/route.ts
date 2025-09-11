@@ -1,21 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
 
 export async function GET(
-  request: Request,
-  {
-    params,
-  }: {
-    params: {
+  request: NextRequest,
+  context: {
+    params: Promise<{
       dirname: string;
       subdirname: string;
       language: string;
       id: string;
-    };
+    }>;
   }
 ) {
-  const { dirname, subdirname, language, id } = await params;
+  const { dirname, subdirname, language, id } = await context.params;
 
   // According to the user, the folder path is determined by the first two parameters of the url path.
   const folderPath = path.join(
