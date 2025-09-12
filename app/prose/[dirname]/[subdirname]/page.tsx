@@ -169,6 +169,46 @@ const processEnglishText = (text: string) => {
   return <>{elements}</>;
 };
 
+const AnnotationTerm = ({ term, annotation, isMobile }: { term: string, annotation: string, isMobile: boolean }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (open) {
+      setTimeout(() => {
+        setIsOpen(false);
+      }, TOOLTIP_DISPLAY_DURATION);
+    }
+  };
+  if (isMobile) {
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <span className="cursor-pointer text-black underline decoration-blue-500 decoration-4 underline-offset-8">
+            {term}
+          </span>
+        </PopoverTrigger>
+        <PopoverContent>
+          <p>{annotation}</p>
+        </PopoverContent>
+      </Popover>
+    );
+  }
+  return (
+    <TooltipProvider>
+      <Tooltip open={isOpen} onOpenChange={handleOpenChange}>
+        <TooltipTrigger asChild>
+          <span className="cursor-pointer text-black underline decoration-blue-500 decoration-4 underline-offset-8">
+            {term}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{annotation}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
 export default function ProsePage() {
   const params = useParams();
   const [proseDataArray, setProseDataArray] = useState<AncientProseData[]>([]);
@@ -635,70 +675,7 @@ export default function ProsePage() {
           
           segments.forEach((segment, segIndex) => {
             if (segment === key) {
-              const TooltipWrapper = () => {
-                const [isOpen, setIsOpen] = useState(false);
-                const touchStartTimeRef = useRef<number>(0);
-                const touchStartPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-                
-                const handleTouchStart = (e: React.TouchEvent) => {
-                  if (isMobile) {
-                    touchStartTimeRef.current = Date.now();
-                    const touch = e.touches[0];
-                    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
-                  }
-                };
-                
-                const handleTouchEnd = (e: React.TouchEvent) => {
-                  if (isMobile) {
-                    const touchEndTime = Date.now();
-                    const touchDuration = touchEndTime - touchStartTimeRef.current;
-                    const touch = e.changedTouches[0];
-                    const deltaX = Math.abs(touch.clientX - touchStartPosRef.current.x);
-                    const deltaY = Math.abs(touch.clientY - touchStartPosRef.current.y);
-                    
-                    // 只有在短时间点击且没有明显移动时才显示tooltip
-                    if (touchDuration < 300 && deltaX < 10 && deltaY < 10) {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setIsOpen(!isOpen);
-                    }
-                  }
-                };
-                
-                const handleClick = (e: React.MouseEvent) => {
-                  if (!isMobile) {
-                    // 桌面端保持原有行为
-                    setIsOpen(!isOpen);
-                  }
-                };
-                
-                return (
-                  <Tooltip open={isMobile ? isOpen : undefined} onOpenChange={isMobile ? setIsOpen : undefined}>
-                     <TooltipTrigger asChild>
-                       <span 
-                         className="hover:bg-primary hover:text-primary-foreground transition-all duration-200 hover:[text-decoration-color:gray]"
-                         style={{
-                           textDecoration: 'underline',
-                           textDecorationColor: 'var(--primary)',
-                           textUnderlineOffset: '6px',
-                           textDecorationThickness: '2px',
-                           cursor: 'help'
-                         }}
-                         onTouchStart={handleTouchStart}
-                         onTouchEnd={handleTouchEnd}
-                         onClick={handleClick}
-                       >
-                         {segment}
-                       </span>
-                     </TooltipTrigger>
-                     <TooltipContent>
-                       <p className="font-alimama-shuheiti">{annotationMap[key]}</p>
-                     </TooltipContent>
-                   </Tooltip>
-                );
-              };
-              
-              newParts.push(<TooltipWrapper key={`${index}-${partIndex}-${segIndex}`} />);
+              newParts.push(<AnnotationTerm key={`${partIndex}-${key}-${segIndex}`} term={key} annotation={annotationMap[key]} isMobile={isMobile} />);
             } else if (segment) {
               newParts.push(segment);
             }
@@ -707,11 +684,10 @@ export default function ProsePage() {
           newParts.push(part);
         }
       });
-      
       parts = newParts;
     });
     
-    return <span>{parts}</span>;
+    return <>{parts}</>;
   }, [isMobile]);
   
   if (loading) {
@@ -804,7 +780,7 @@ export default function ProsePage() {
           <div className={`text-left transition-all duration-300 ${isMobile ? 'space-y-4' : 'space-y-6'} ${contentLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
             {/* 原文 */}
             <TooltipProvider>
-              <div className={`flex items-center gap-2 font-medium text-foreground leading-relaxed font-alimama ${isMobile ? 'text-2xl' : 'text-lg'}`} style={isMobile ? { wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap' } : {}}>
+              <div className={`flex items-center gap-2 font-medium text-foreground leading-relaxed font-alimama ${isMobile ? 'text-3xl' : 'text-2xl'}`} style={isMobile ? { wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap' } : {}}>
                 <VoicePlayer
                   onTogglePlay={() => handleTogglePlay('original')}
                   isPlaying={playingState.language === 'original' && playingState.isPlaying}
@@ -817,7 +793,7 @@ export default function ProsePage() {
             
             {/* 中文描述 */}
             {showChinese && currentData.description && (
-              <div className={`flex items-center gap-2 text-muted-foreground leading-relaxed font-alimama-fangyuanti ${isMobile ? 'text-xl' : 'text-sm'}`} style={isMobile ? { wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap' } : {}}>
+              <div className={`flex items-center gap-2 text-black leading-relaxed font-alimama-fangyuanti ${isMobile ? 'text-2xl' : 'text-xl'}`} style={isMobile ? { wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap' } : {}}>
                 <VoicePlayer
                   onTogglePlay={() => handleTogglePlay('description')}
                   isPlaying={playingState.language === 'description' && playingState.isPlaying}
@@ -833,7 +809,7 @@ export default function ProsePage() {
             
             {/* 英文翻译 */}
             {showEnglish && currentData.en && (
-              <div className={`flex items-center gap-2 text-muted-foreground leading-relaxed ${isMobile ? 'text-xl' : 'text-sm'}`} style={isMobile ? { wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap' } : {}}>
+              <div className={`flex items-center gap-2 text-muted-foreground leading-relaxed ${isMobile ? 'text-2xl' : 'text-sm'}`} style={isMobile ? { wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap' } : {}}>
                 <VoicePlayer
                   onTogglePlay={() => handleTogglePlay('en')}
                   isPlaying={playingState.language === 'en' && playingState.isPlaying}
@@ -846,7 +822,7 @@ export default function ProsePage() {
             
             {/* 日文翻译 */}
             {showJapanese && currentData.jp && (
-              <div className={`flex items-center gap-2 text-muted-foreground leading-relaxed ${isMobile ? 'text-xl' : 'text-lg'}`} style={isMobile ? { wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap' } : {}}>
+              <div className={`flex items-center gap-2 text-muted-foreground leading-relaxed ${isMobile ? 'text-2xl' : 'text-lg'}`} style={isMobile ? { wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap' } : {}}>
                 <VoicePlayer
                   onTogglePlay={() => handleTogglePlay('jp')}
                   isPlaying={playingState.language === 'jp' && playingState.isPlaying}
@@ -881,6 +857,28 @@ export default function ProsePage() {
           </TooltipProvider>
         )}
       </div>
+      
+      {/* 移动端底部导航按钮 */}
+      {isMobile && (
+        <div className="flex border-t">
+          <Button
+            variant="ghost"
+            className="w-1/2 h-16 rounded-none"
+            onClick={handlePrevious}
+            disabled={isNavigationLocked || currentId === 0}
+          >
+            <ChevronLeft className="h-8 w-8" />
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-1/2 h-16 rounded-none border-l"
+            onClick={handleNext}
+            disabled={isNavigationLocked || (totalCount > 0 && currentId === totalCount - 1)}
+          >
+            <ChevronRight className="h-8 w-8" />
+          </Button>
+        </div>
+      )}
       
       {/* 底部slider */}
       <div className={`border-t ${isMobile ? 'p-3' : 'p-6'}`}>

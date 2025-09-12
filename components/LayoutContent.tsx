@@ -106,15 +106,14 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
   if (isMobile) {
     return (
       <Sheet open={navOpen} onOpenChange={setNavOpen}>
-        <header className="bg-background flex shrink-0 items-center gap-2 border-b p-4 font-alimama-shuheiti fixed top-0 left-0 right-0 z-40">
-          <DynamicBreadcrumb />
+        <main className="p-4 pb-32 pt-4 text-xl leading-relaxed">
+          {children}
+        </main>
+        <header className="bg-background flex shrink-0 items-center gap-2 border-t p-4 font-alimama-shuheiti fixed bottom-14 left-0 right-0 z-40">
           <div className="flex-1" />
           <ProseControls />
           <MusicPlayer />
         </header>
-        <main className="p-4 pb-14 pt-20 text-xl leading-relaxed">
-          {children}
-        </main>
         <nav className={`fixed bottom-0 left-0 right-0 bg-background border-t z-50 flex justify-center items-center h-14 ${!isUIVisible ? 'transform translate-y-full opacity-0' : 'transform translate-y-0 opacity-100'} transition-all duration-300`}>
           <SheetTrigger asChild>
             <Button variant="ghost" className="flex flex-col items-center" onClick={() => setNavLevel('primary')}>
